@@ -1,0 +1,6 @@
+{
+  "service-a": ["service-b", "service-c"],
+  "service-b": ["service-d"],
+  "service-c": [],
+  "service-d": []
+}

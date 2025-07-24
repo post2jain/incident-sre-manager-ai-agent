@@ -1,0 +1,3 @@
+incident: |
+  Received alert: ConsumerLagHigh on topic foo. Partition 17 shows 10x lag relative to others. Error logs indicate timeout on consumer group c1.
+  Please help triage and draft comms + a postmortem skeleton.
