@@ -1,0 +1,60 @@
+version: '3.9'
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.9.0
+    ports:
+      - '6333:6333'
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:6333/readyz']
+      interval: 5s
+      timeout: 2s
+      retries: 30
+  ingest:
+    build: .
+    command: ['python', 'scripts/ingest_vector_db.py']
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      VECTOR_BACKEND: qdrant
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      EMBED_MODEL: ${EMBED_MODEL:-text-embedding-3-large}
+      EMBED_DIM: ${EMBED_DIM:-3072}
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    restart: 'no'
+  mcp:
+    build: .
+    command: ['uvicorn', 'agent.tools.mcp_api:app', '--host', '0.0.0.0', '--port', '8000']
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      VECTOR_BACKEND: qdrant
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      EMBED_MODEL: ${EMBED_MODEL:-text-embedding-3-large}
+      EMBED_DIM: ${EMBED_DIM:-3072}
+      MCP_API_KEY: ${MCP_API_KEY:-}
+    ports:
+      - '8000:8000'
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      ingest:
+        condition: service_completed_successfully
+  agent-runner:
+    build: .
+    command: ['python', 'scripts/replay_scenarios.py', '--scenario', 'data_fixtures/scenarios/kafka_hot_partition.yaml']
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      VECTOR_BACKEND: qdrant
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      EMBED_MODEL: ${EMBED_MODEL:-text-embedding-3-large}
+      EMBED_DIM: ${EMBED_DIM:-3072}
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      ingest:
+        condition: service_completed_successfully
+    restart: 'no'
+volumes:
+  qdrant_data:
